@@ -1,0 +1,36 @@
+name: Surveillance HOUX
+
+on:
+  schedule:
+    - cron: "3-59/5 * * * *"  # toutes les 5 min, décalé des heures pile (moins de retard côté GitHub)
+  workflow_dispatch:           # bouton « Run workflow » pour lancer à la main
+
+concurrency:
+  group: houx
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v7
+
+      # Récupère l'état du passage précédent (annonces déjà notifiées, échecs en cours)
+      - uses: actions/cache/restore@v6
+        with:
+          path: houx_state.json
+          key: houx-state-${{ github.run_id }}
+          restore-keys: houx-state-
+
+      - run: python3 houx_watch.py --once
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          FREE_USER: ${{ secrets.FREE_USER }}
+          FREE_PASS: ${{ secrets.FREE_PASS }}
+
+      - uses: actions/cache/save@v6
+        if: always()
+        with:
+          path: houx_state.json
+          key: houx-state-${{ github.run_id }}-${{ github.run_attempt }}
